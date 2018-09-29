@@ -1,6 +1,7 @@
 NAME		=	colorart
 
-SRCS		=	colorart.c
+SRCS		=	colorart.c \
+				analyse.c
 
 OBJS		=	$(SRCS:.c=.o)
 

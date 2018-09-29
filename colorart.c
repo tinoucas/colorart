@@ -1,19 +1,49 @@
 #include <stdio.h>
-#include <stdlib.h>
+#include "colorart.h"
+#include "analyse.h"
 #include <MagickWand/MagickWand.h>
 
 #define LIMIT(n, m, v) ((v) > m ? m : ((v) < n ? n : (v)))
-#define CHARCOL(c) ((unsigned char)((c) * 255. / QuantumRange))
+#define NORMCOL(c) ((c) / QuantumRange)
+#define CHARCOL(c) ((unsigned char)((c) * 255.))
 
-struct MagickData
+void makeNormalColor (const PixelInfo* pixel, struct NormalColor* color)
 {
-	const char* filepath;
-	MagickWand *wand;
-	size_t width;
-	size_t height;
-};
+	color->r = NORMCOL(pixel->red);
+	color->g = NORMCOL(pixel->green);
+	color->b = NORMCOL(pixel->blue);
+}
 
-void analyseimage (struct MagickData* data)
+const struct NormalColor* getColorAt (const struct ImageData* data, int x, int y)
+{
+	static struct NormalColor dummyColor;
+
+	if (x < 0 || data->width <= x || y < 0 || data->height <= y)
+		return &dummyColor;
+	return &data->pixels[y][x];
+}
+
+void printresult (const struct ImageData* data, int printfilename)
+{
+	if (data->pixels != NULL)
+	{
+		for (int x = 0; x < data->width; ++x)
+		{
+			for (int y = 0; y < data->height; ++y)
+				printf("#%02x%02x%02x ", CHARCOL(getColorAt(data, x, y)->r), CHARCOL(getColorAt(data, x, y)->g), CHARCOL(getColorAt(data, x, y)->b)); 
+			printf("\n");
+		}
+	}
+}
+
+void allocPixels (struct ImageData* data)
+{
+	data->pixels = calloc(data->height, sizeof(struct NormalColor*));
+	for (int y = 0; y < data->height; ++y)
+		data->pixels[y] = calloc(data->width, sizeof(struct NormalColor));
+}
+
+void fillPixels (struct ImageData* data)
 {
 	PixelIterator* it = NewPixelIterator(data->wand);
 	PixelWand** rowpixels;
@@ -32,19 +62,14 @@ void analyseimage (struct MagickData* data)
 		for (int x = 0; x < data->width; ++x)
 		{
 			PixelGetMagickColor(rowpixels[x], &pixel);
-			printf("#%02x%02x%02x ", CHARCOL(pixel.red), CHARCOL(pixel.green), CHARCOL(pixel.blue));
+			makeNormalColor(&pixel, &data->pixels[y][x]);
 		}
-		printf("\n");
 	}
 
 	DestroyPixelIterator(it);
 }
 
-void printresult (const struct MagickData* data, int printfilename)
-{
-}
-
-int readimage (struct MagickData* data)
+int readimage (struct ImageData* data)
 {
 	MagickBooleanType status;
 
@@ -63,13 +88,28 @@ int readimage (struct MagickData* data)
 	{
 		data->width = MagickGetImageWidth(data->wand);
 		data->height = MagickGetImageHeight(data->wand);
+		allocPixels(data);
+		fillPixels(data);
 	}
 	return status != MagickFalse;
 }
 
+void freePixels (struct ImageData* data)
+{
+	if (data->pixels)
+	{
+		for (int y = 0; y < data->height; ++y)
+			free(data->pixels[y]);
+		free(data->pixels);
+	}
+	data->pixels = NULL;
+}
+
 int main (int argc, char** argv)
 {
-	struct MagickData data;
+	struct ImageData data;
+
+	data.pixels = NULL;
 
 	if (argc <= 1)
 	{
@@ -88,6 +128,7 @@ int main (int argc, char** argv)
 			printresult(&data, argc > 2);
 		}
 		data.wand = DestroyMagickWand(data.wand);
+		freePixels(&data);
 	}
 
 	MagickWandTerminus();
