@@ -9,6 +9,7 @@
 #define LIMIT(n, m, v) ((v) > m ? m : ((v) < n ? n : (v)))
 #define NORMCOL(c) ((c) / QuantumRange)
 #define DIM(a) (sizeof(a)/sizeof((a)[0]))
+#define MAXPIXELS (1920*1080)
 
 int colorsEqual (const struct NormalColor* left, const struct NormalColor* right)
 {
@@ -229,13 +230,36 @@ void fillPixels (struct ImageData* data)
 		{
 			PixelGetMagickColor(rowpixels[x], &pixel);
 			makeNormalColor(&pixel, &data->pixels[y][x]);
-			data->pixelHash[y * data->height + x] = MAKEINT(&data->pixels[y][x]);
+			data->pixelHash[y * data->width + x] = MAKEINT(&data->pixels[y][x]);
 		}
 	}
 
 	sortPixelHash(data);
 
 	DestroyPixelIterator(it);
+}
+
+void scaledownimage (struct ImageData* data)
+{
+	double numpixels = (double)(data->width * data->height);
+	double scaledownfactor = (double)MAXPIXELS / numpixels;
+
+	fprintf(stderr, "scaling down by: %g\n", scaledownfactor);
+	if (scaledownfactor < 1.)
+	{
+		MagickBooleanType status;
+
+		double width = (int)((double)data->width * scaledownfactor);
+		double height = (int)((double)data->height * scaledownfactor);
+
+		status = MagickScaleImage(data->wand, width, height);
+
+		if (status == MagickTrue)
+		{
+			data->width = width;
+			data->height = height;
+		}
+	}
 }
 
 int readimage (struct ImageData* data)
@@ -257,6 +281,9 @@ int readimage (struct ImageData* data)
 	{
 		data->width = MagickGetImageWidth(data->wand);
 		data->height = MagickGetImageHeight(data->wand);
+
+		if (data->width * data->height > MAXPIXELS)
+			scaledownimage(data);
 		allocPixels(data);
 		fillPixels(data);
 	}
