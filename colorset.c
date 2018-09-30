@@ -26,11 +26,14 @@ struct ColorSet* createColorSetWithData (const struct ImageData* data)
 void freeColorSet (struct ColorSet* colorset)
 {
 	if (colorset->capacity > 0)
+	{
 		free(colorset->colors);
+		free(colorset->pixelHash);
+	}
 	free(colorset);
 }
 
-void appendWeightedColor (struct ColorSet* colorset, const struct NormalColor* color, int weight)
+void appendColor (struct ColorSet* colorset, const struct NormalColor* color)
 {
 	if (colorset->size + 1 > colorset->capacity)
 	{
@@ -44,9 +47,12 @@ void appendWeightedColor (struct ColorSet* colorset, const struct NormalColor* c
 	++colorset->size;
 }
 
-void appendColor (struct ColorSet* colorset, const struct NormalColor* color)
+void appendWeightedColor (struct ColorSet* colorset, const struct NormalColor* color, int weight)
 {
-	appendWeightedColor(colorset, color, 1);
+	struct NormalColor weightedColor = *color;
+
+	weightedColor.weight = weight;
+	appendColor(colorset, &weightedColor);
 }
 
 static int weightcomp (const void* left, const void* right)

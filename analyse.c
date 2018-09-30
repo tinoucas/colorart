@@ -222,6 +222,8 @@ void findTextColors (struct ImageData* data, struct NormalColor* primaryColor, s
 			break;
 		}
 	}
+
+	freeColorSet(sortedColors);
 }
 
 void analyseimage (struct ImageData* data)
