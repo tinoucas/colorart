@@ -317,7 +317,7 @@ void readoptions (struct Options* options, int argc, char** argv)
 		{
 		case 's':
 			{
-				double maxsaturation = atoi(optarg);
+				double maxsaturation = atof(optarg);
 
 				if (0. <= maxsaturation && maxsaturation <= 1.)
 					options->maxsaturation = maxsaturation;
