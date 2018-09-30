@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include "colorart.h"
 #include "analyse.h"
 #include "color.h"
@@ -6,6 +8,7 @@
 
 #define LIMIT(n, m, v) ((v) > m ? m : ((v) < n ? n : (v)))
 #define NORMCOL(c) ((c) / QuantumRange)
+#define DIM(a) (sizeof(a)/sizeof((a)[0]))
 
 int colorsEqual (const struct NormalColor* left, const struct NormalColor* right)
 {
@@ -39,36 +42,26 @@ const struct NormalColor* getColorAt (const struct ImageData* data, int x, int y
 	return &data->pixels[y][x];
 }
 
-void printColor(const struct NormalColor* color)
+#define COLORSTRFMT "#%02x%02x%02x"
+#define COLORSTRLEN 7
+
+void sprintColor(char* str, const struct NormalColor* color)
 {
-	printf("#%02x%02x%02x", CHARCOL(color->r), CHARCOL(color->g), CHARCOL(color->b)); 
+	sprintf(str, COLORSTRFMT, CHARCOL(color->r), CHARCOL(color->g), CHARCOL(color->b));
 }
 
 void fprintColor(FILE* fd, const struct NormalColor* color)
 {
-	fprintf(fd, "#%02x%02x%02x", CHARCOL(color->r), CHARCOL(color->g), CHARCOL(color->b)); 
+	fprintf(fd, COLORSTRFMT, CHARCOL(color->r), CHARCOL(color->g), CHARCOL(color->b)); 
 }
 
-void printresult (const struct ImageData* data, int printfilename)
+void printColor(const struct NormalColor* color)
 {
-	if (data->pixels != NULL)
-	{
-		printf("normbg \"");
-		printColor(&data->backgroundColor);
-		printf("\", normfg \"");
-		printColor(&data->primaryColor);
-		printf("\", selbg \"");
-		printColor(&data->detailColor);
-		printf("\", selfg \"");
-		printColor(&data->backgroundColor);
-		printf("\"\n");
-	}
+	fprintColor(stdout, color);
 }
 
-void debugresult (const struct ImageData* data)
+void debugresult (FILE* fd, const struct ImageData* data)
 {
-	FILE* fd = fopen("/dev/stderr", "w");
-
 	if (fd != NULL)
 	{
 		fprintf(fd, "Image file '%s':\n", data->filepath);
@@ -81,8 +74,110 @@ void debugresult (const struct ImageData* data)
 		fprintf(fd, "\nsecondary: ");
 		fprintColor(fd, &data->secondaryColor);
 		fprintf(fd, "\n\n");
-	
-		fclose(fd);
+	}
+}
+
+char* ensureresultlength (char** presult, int neededlen)
+{
+	static const int blocksize = 1024;
+	char* result = *presult;
+	int resultlen = result == NULL ? 0 : strlen(result);
+	int alloclen = result == NULL ? 0 : (resultlen / blocksize + 1) * blocksize + 1;
+
+	if (result == NULL || alloclen <= resultlen + neededlen)
+		result = realloc(result, (alloclen + blocksize) * sizeof(char));
+
+	*presult = result;
+	result += resultlen;
+	*result = 0;
+	return result;
+}
+
+void appendResultStr (char** presult, const char* str, int nchars)
+{
+	char* result = ensureresultlength(presult, nchars);
+
+	if (result != NULL)
+	{
+		strncpy(result, str, nchars);
+		*(result + nchars) = 0;
+	}
+}
+
+void appendResultColor (char** presult, const struct NormalColor* color)
+{
+	char* result = ensureresultlength(presult, COLORSTRLEN);
+
+	if (result != NULL)
+		sprintColor(result, color);
+}
+
+void printresult (const struct ImageData* data, int printfilename, const char* format)
+{
+	if (data->pixels != NULL)
+	{
+		char* result = NULL;
+
+		if (format != NULL && *format != 0)
+		{
+			const struct
+			{
+				const char wildcard;
+				const struct NormalColor *color;
+			} validTokens[] =
+			{
+				{ 'b', &data->backgroundColor },
+				{ 'p', &data->primaryColor },
+				{ 's', &data->secondaryColor },
+				{ 'd', &data->detailColor },
+			};
+
+			int formatlen = strlen(format);
+			const char* formatleft = format;
+
+			while (*formatleft != 0)
+			{
+				const char* nextToken = strstr(formatleft, "%");
+				int copynchars = 0;
+
+				if (nextToken != NULL)
+					copynchars = nextToken - formatleft;
+				else
+					copynchars = strlen(formatleft);
+
+				if (copynchars > 0)
+				{
+					appendResultStr(&result, formatleft, copynchars);
+					formatleft += copynchars;
+				}
+				if (nextToken != NULL)
+				{
+					int tokenFound = 0;
+
+					++formatleft;
+					++nextToken;
+
+					if (*nextToken == '%')
+						appendResultStr(&result, "%", 1);
+					else
+						for (int i = 0; i < DIM(validTokens); ++i)
+						{
+							if (*nextToken == validTokens[i].wildcard)
+							{
+								appendResultColor(&result, validTokens[i].color);
+								++formatleft;
+								tokenFound = 1;
+								break;
+							}
+						}
+				}
+			}
+		}
+		if (result != NULL)
+		{
+			printf("%s\n", result);
+			free(result);
+		}
 	}
 }
 
@@ -172,31 +267,107 @@ void freePixels (struct ImageData* data)
 	data->pixels = NULL;
 }
 
-static double maxsaturation = 0.628;
+struct Options
+{
+	double maxsaturation; // 0.628;
+	const char* format;
+	int printfilename;
+	int quiet;
+};
+
+void usage (const char* procName)
+{
+	fprintf(stderr, "Usage: %s [-fq] [-s maxsat] [-F formatstr] image\n"
+			"-f: print file name\n"
+			"-q: quiet\n"
+			"-s maxsat: limit output color saturation (0..1)\n"
+			"-F formatstr: format output:\n"
+			"	'%b': background color\n"
+			"	'%p': primary color\n"
+			"	'%s': secondary color\n"
+			"	'%d': detail color\n"
+			, procName);
+	exit(1);
+}
+
+void initoptions (struct Options* options)
+{
+	options->maxsaturation = 1.;
+	options->format = NULL;
+	options->printfilename = 0;
+	options->quiet = 0;
+}
+
+void readoptions (struct Options* options, int argc, char** argv)
+{
+	int error = 0;
+	int c;
+	opterr = 0;
+
+	while ((c = getopt (argc, argv, "s:fF:q")) != -1)
+		switch (c)
+		{
+		case 's':
+			{
+				double maxsaturation = atoi(optarg);
+
+				if (0. <= maxsaturation && maxsaturation <= 1.)
+					options->maxsaturation = maxsaturation;
+				else
+				{
+					fprintf(stderr, "saturation needs to be in the range 0..1");
+					error = 1;
+				}
+			}
+			break;
+		case 'f':
+			options->printfilename = 1;
+			break;
+		case 'F':
+			options->format = optarg;
+			break;
+		case 'q':
+			options->quiet = 1;
+			break;
+		default:
+			error = 1;
+			break;
+		}
+
+	if (error)
+	{
+		usage(argv[0]);
+	}
+
+}
 
 int main (int argc, char** argv)
 {
 	struct ImageData data;
+	struct Options options;
 
 	data.pixels = NULL;
 
-	if (argc <= 1)
+	initoptions(&options);
+	readoptions(&options, argc, argv);
+
+	if (argc - optind < 1)
 	{
-		fprintf(stderr, "Usage: %s image\n", argv[0]);
-		exit(3);
+		usage(argv[0]);
 	}
 
 	MagickWandGenesis();
 
-	for (int i = 1; i < argc; ++i)
+	for (int i = optind; i < argc; ++i)
 	{
 		data.filepath = argv[i];
 		if (readimage(&data))
 		{
 			analyseimage(&data);
-			ensuresaturation(&data, maxsaturation);
-			printresult(&data, argc > 2);
-			debugresult(&data);
+			ensuresaturation(&data, options.maxsaturation);
+			printresult(&data, options.printfilename, options.format);
+			if (!options.quiet && (options.format == NULL || *options.format != 0))
+				debugresult(stderr, &data);
 		}
 		data.wand = DestroyMagickWand(data.wand);
 		freePixels(&data);
