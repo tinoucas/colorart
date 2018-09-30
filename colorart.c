@@ -285,8 +285,8 @@ struct Options
 
 void usage (const char* procName)
 {
-	fprintf(stderr, "Usage: %s [-fq] [-s maxsat] [-F formatstr] image\n"
-			"-f: print file name\n"
+	fprintf(stderr, "Usage: %s [-fq] [-s maxsat] [-F formatstr] image [image...]\n"
+			"-f: print file path\n"
 			"-q: quiet\n"
 			"-s maxsat: limit output color saturation (0..1)\n"
 			"-F formatstr: format output:\n"
