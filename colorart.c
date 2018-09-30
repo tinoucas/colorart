@@ -244,7 +244,6 @@ void scaledownimage (struct ImageData* data)
 	double numpixels = (double)(data->width * data->height);
 	double scaledownfactor = (double)MAXPIXELS / numpixels;
 
-	fprintf(stderr, "scaling down by: %g\n", scaledownfactor);
 	if (scaledownfactor < 1.)
 	{
 		MagickBooleanType status;
