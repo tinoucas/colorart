@@ -1,7 +1,9 @@
 NAME		=	colorart
 
 SRCS		=	colorart.c \
-				analyse.c
+				analyse.c \
+				colorset.c \
+				color.c
 
 OBJS		=	$(SRCS:.c=.o)
 
@@ -11,7 +13,9 @@ CP		=	cp -f
 
 INSTALLPATH	=	~/bin/
 
-CFLAGS		=	-O0 -g `pkg-config --cflags MagickWand`
+CFLAGS		=	`pkg-config --cflags MagickWand` \
+				-O2
+#				-O0 -g 
 
 LDFLAGS		=	`pkg-config --libs MagickWand`
 
