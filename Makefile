@@ -19,6 +19,10 @@ CFLAGS		=	`pkg-config --cflags MagickWand` \
 
 LDFLAGS		=	`pkg-config --libs MagickWand`
 
+VALGRIND		= valgrind
+
+VALGRINDOPTS	= --leak-check=full
+
 
 $(NAME)	:	$(OBJS)
 			$(CC) -o $(NAME) $(OBJS) $(LDFLAGS)
@@ -37,5 +41,7 @@ re	:	fclean all
 install	:	all
 			$(CP) $(NAME) $(INSTALLPATH)
 
+leakcheck: all
+	$(VALGRIND) $(VALGRINDOPTS) ./$(NAME) -F 'background "%b", primary "%p", secondary "%s", detail "%d", percent "%%"' 'image.jpg'
 
 
