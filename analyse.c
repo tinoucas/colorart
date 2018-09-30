@@ -75,8 +75,8 @@ void findEdgeColor (struct ImageData* data, struct NormalColor* edgeColor)
 			if (x == searchColumnX)
 			{
 				//make sure it's a meaningful color
-				/*if ( color.alphaComponent > .5 )*/
-				appendColor(leftEdgeColors, &color);
+				if (color.a > .5)
+					appendColor(leftEdgeColors, &color);
 			}
 		}
 		

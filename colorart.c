@@ -11,7 +11,8 @@ int colorsEqual (const struct NormalColor* left, const struct NormalColor* right
 {
 	return left->r == right->r
 		&& left->g == right->g
-		&& left->b == right->b;
+		&& left->b == right->b
+		&& left->a == right->a;
 }
 
 int colorsCompare (const struct NormalColor* left, const struct NormalColor* right)
@@ -26,6 +27,7 @@ void makeNormalColor (const PixelInfo* pixel, struct NormalColor* color)
 	color->r = NORMCOL(pixel->red);
 	color->g = NORMCOL(pixel->green);
 	color->b = NORMCOL(pixel->blue);
+	color->a = NORMCOL(pixel->alpha);
 }
 
 const struct NormalColor* getColorAt (const struct ImageData* data, int x, int y)
@@ -42,22 +44,46 @@ void printColor(const struct NormalColor* color)
 	printf("#%02x%02x%02x", CHARCOL(color->r), CHARCOL(color->g), CHARCOL(color->b)); 
 }
 
+void fprintColor(FILE* fd, const struct NormalColor* color)
+{
+	fprintf(fd, "#%02x%02x%02x", CHARCOL(color->r), CHARCOL(color->g), CHARCOL(color->b)); 
+}
+
 void printresult (const struct ImageData* data, int printfilename)
 {
 	if (data->pixels != NULL)
 	{
 		printf("normbg \"");
-		printColor(&data->backgroundColor); // "#221d19"
+		printColor(&data->backgroundColor);
 		printf("\", normfg \"");
-		printColor(&data->primaryColor); // "#b3c176"
+		printColor(&data->primaryColor);
 		printf("\", selbg \"");
-		printColor(&data->primaryColor); // "#b3c176"
+		printColor(&data->detailColor);
 		printf("\", selfg \"");
-		printColor(&data->backgroundColor); // "#221d19"
+		printColor(&data->backgroundColor);
 		printf("\"\n");
 	}
-		/*printColor(&data->detailColor); // "#8d816b"*/
-		/*printColor(&data->secondaryColor); // "#ffffff"*/
+}
+
+void debugresult (const struct ImageData* data)
+{
+	FILE* fd = fopen("/dev/stderr", "w");
+
+	if (fd != NULL)
+	{
+		fprintf(fd, "Image file '%s':\n", data->filepath);
+		fprintf(fd, "background: ");
+		fprintColor(fd, &data->backgroundColor);
+		fprintf(fd, "\nprimary: ");
+		fprintColor(fd, &data->primaryColor);
+		fprintf(fd, "\ndetail: ");
+		fprintColor(fd, &data->detailColor);
+		fprintf(fd, "\nsecondary: ");
+		fprintColor(fd, &data->secondaryColor);
+		fprintf(fd, "\n\n");
+	
+		fclose(fd);
+	}
 }
 
 void allocPixels (struct ImageData* data)
@@ -170,6 +196,7 @@ int main (int argc, char** argv)
 			analyseimage(&data);
 			ensuresaturation(&data, maxsaturation);
 			printresult(&data, argc > 2);
+			debugresult(&data);
 		}
 		data.wand = DestroyMagickWand(data.wand);
 		freePixels(&data);

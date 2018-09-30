@@ -5,6 +5,7 @@ struct NormalColor
 {
 	double r, g, b;
 	double h, s, v;
+	double a;
 	int weight;
 };
 
@@ -34,6 +35,6 @@ const struct NormalColor* getColorAt (const struct ImageData* data, int x, int y
 void printColor (const struct NormalColor* color);
 
 #define CHARCOL(c) ((unsigned char)((c) * 255.))
-#define MAKEINT(c) ((int)CHARCOL((c)->r) | ((int)CHARCOL((c)->g) << 8) | ((int)CHARCOL((c)->b) << 16))
+#define MAKEINT(c) ((int)CHARCOL((c)->r) | ((int)CHARCOL((c)->g) << 8) | ((int)CHARCOL((c)->b) << 16) | ((int)CHARCOL((c)->a) << 24))
 
 struct NormalColor makeColorFromHash (int hash);
