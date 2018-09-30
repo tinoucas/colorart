@@ -114,6 +114,9 @@ void appendResultColor (char** presult, const struct NormalColor* color)
 
 void printresult (const struct ImageData* data, int printfilename, const char* format)
 {
+	if (printfilename)
+		printf("%s: ", data->filepath);
+
 	if (data->pixels != NULL)
 	{
 		char* result = NULL;
@@ -175,10 +178,15 @@ void printresult (const struct ImageData* data, int printfilename, const char* f
 		}
 		if (result != NULL)
 		{
-			printf("%s\n", result);
+			printf("%s", result);
 			free(result);
 		}
 	}
+	else
+	{
+		printf("no image found.");
+	}
+	printf("\n");
 }
 
 void allocPixels (struct ImageData* data)
